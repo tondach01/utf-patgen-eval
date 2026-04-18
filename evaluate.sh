@@ -7,7 +7,7 @@
 # ./scripts/evaluate.sh [output.csv]
 
 # Configuration
-BINARIES=("patgen" "../utf-patgen/utfpatgen_wrapper.sh")
+BINARIES=("patgen" "../utf-patgen/build/utfpatgen")
 PROFILES_DIR=${PROFILES_DIR:-profiles}
 DATA_DIR=${DATA_DIR:-data}
 OUTPUT_FILE=${1:-evaluation_results.csv}
