@@ -56,8 +56,14 @@ def main():
                        help='Hyphenation marker character (default: "-")')
     parser.add_argument('--output', '-o', type=str, default='generated.wlhamb',
                        help='Output file name (default: generated.wlhamb)')
+    parser.add_argument('--seed', '-s', type=int, default=None,
+                       help='Random seed for reproducible results (default: None)')
 
     args = parser.parse_args()
+
+    # Set random seed for reproducibility
+    if args.seed is not None:
+        random.seed(args.seed)
 
     global marker
     marker = args.marker
