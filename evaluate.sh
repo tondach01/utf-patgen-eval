@@ -102,6 +102,7 @@ echo "Running up to $JOBS parallel jobs..."
 
 # Generate list of tasks and run them in parallel
 for ((iteration=1; iteration<=$ITERATIONS; iteration++)); do
+    echo "Running iteration $iteration..."
     for binary in "${BINARIES[@]}"; do
         # Check if binary is available
         if ! command -v "$binary" &> /dev/null && [ ! -f "$binary" ]; then
