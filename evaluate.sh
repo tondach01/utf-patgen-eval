@@ -12,6 +12,7 @@ PROFILES_DIR=${PROFILES_DIR:-profiles}
 DATA_DIR=${DATA_DIR:-data}
 OUTPUT_FILE=${1:-evaluation_results.csv}
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 1)}
+ITERATIONS=${ITERATIONS:-1}
 LOGS_DIR=${LOGS_DIR:-logs}
 
 # Ensure logs directory exists
@@ -22,10 +23,11 @@ WLH_FILES=$(find "$DATA_DIR" -name "*.wlh" | sort)
 
 # Function to run a single evaluation task
 evaluate_task() {
-    local binary="$1"
-    local profile="$2"
-    local wlh="$3"
-    local output_file="$4"
+    local iterations="$1"
+    local binary="$2"
+    local profile="$3"
+    local wlh="$4"
+    local output_file="$5"
     
     local profile_name=$(basename "$profile")
     local dataset_name=$(basename "$wlh" .wlh)
@@ -87,41 +89,43 @@ evaluate_task() {
     echo "[FINISHED] $dataset_name | Binary: $binary | Profile: $profile_name | Time: ${user_time}s | RAM: ${max_rss}KB"
     
     # Output result (append to CSV)
-    echo "$binary,$profile_name,$dataset_name,$user_time,$sys_time,$max_rss,$tp,$fp,$fn,$num_patterns,$num_nodes" >> "$output_file"
+    echo "$iterations,$binary,$profile_name,$dataset_name,$user_time,$sys_time,$max_rss,$tp,$fp,$fn,$num_patterns,$num_nodes" >> "$output_file"
     
     # Cleanup
     rm -rf "$tmp_dir"
 }
 
 # Print CSV header
-echo "Binary,Profile,Dataset,UserTime(s),SystemTime(s),MaxRSS(KB),TP,FP,FN,Patterns,TrieNodes" > "$OUTPUT_FILE"
+echo "Iteration,Binary,Profile,Dataset,UserTime(s),SystemTime(s),MaxRSS(KB),TP,FP,FN,Patterns,TrieNodes" > "$OUTPUT_FILE"
 echo "Results will be saved to $OUTPUT_FILE"
 echo "Running up to $JOBS parallel jobs..."
 
 # Generate list of tasks and run them in parallel
-for binary in "${BINARIES[@]}"; do
-    # Check if binary is available
-    if ! command -v "$binary" &> /dev/null && [ ! -f "$binary" ]; then
-        echo "Binary $binary not found, skipping." >&2
-        continue
-    fi
+for ((iteration=1; iteration<=$ITERATIONS; iteration++)); do
+    for binary in "${BINARIES[@]}"; do
+        # Check if binary is available
+        if ! command -v "$binary" &> /dev/null && [ ! -f "$binary" ]; then
+            echo "Binary $binary not found, skipping." >&2
+            continue
+        fi
 
-    for profile in "$PROFILES_DIR"/*.in; do
-        [ -e "$profile" ] || continue
-        for wlh in $WLH_FILES; do
-            # Check if .tr file exists before spawning background job
-            tr="${wlh%.wlh}.tr"
-            if [ ! -f "$tr" ]; then
-                continue
-            fi
+        for profile in "$PROFILES_DIR"/*.in; do
+            [ -e "$profile" ] || continue
+            for wlh in $WLH_FILES; do
+                # Check if .tr file exists before spawning background job
+                tr="${wlh%.wlh}.tr"
+                if [ ! -f "$tr" ]; then
+                    continue
+                fi
 
-            # Run in background
-            evaluate_task "$binary" "$profile" "$wlh" "$OUTPUT_FILE" &
-            
-            # Limit number of parallel jobs
-            if [[ $(jobs -r | wc -l) -ge $JOBS ]]; then
-                wait -n
-            fi
+                # Run in background
+                evaluate_task "$iteration" "$binary" "$profile" "$wlh" "$OUTPUT_FILE" &
+                
+                # Limit number of parallel jobs
+                if [[ $(jobs -r | wc -l) -ge $JOBS ]]; then
+                    wait -n
+                fi
+            done
         done
     done
 done
