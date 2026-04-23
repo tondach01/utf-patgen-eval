@@ -23,7 +23,7 @@ WLH_FILES=$(find "$DATA_DIR" -name "*.wlh" | sort)
 
 # Function to run a single evaluation task
 evaluate_task() {
-    local iterations="$1"
+    local iteration="$1"
     local binary="$2"
     local profile="$3"
     local wlh="$4"
@@ -50,9 +50,9 @@ evaluate_task() {
         wlh="$wlh_conv"
     fi
 
-    local task_log="$LOGS_DIR/${dataset_name}_${binary_name}_${profile_name}.log"
+    local task_log="$LOGS_DIR/${dataset_name}_${binary_name}_${profile_name}_${iteration}.log"
     
-    echo "[STARTED]  $dataset_name | Binary: $binary | Profile: $profile_name"
+    echo "[STARTED]  $dataset_name | Binary: $binary_name | Profile: $profile_name ($iteration/$ITERATIONS)"
     
     # Construct input from profile
     local num_levels=$(grep -v '^#' "$profile" | grep -v '^[[:space:]]*$' | wc -l)
@@ -94,10 +94,10 @@ evaluate_task() {
     tp=${tp:-0}; fp=${fp:-0}; fn=${fn:-0}
     num_patterns=${num_patterns:-0}; num_nodes=${num_nodes:-0}
 
-    echo "[FINISHED] $dataset_name | Binary: $binary | Profile: $profile_name | Time: ${user_time}s | RAM: ${max_rss}KB"
+    echo "[FINISHED] $dataset_name | Binary: $binary_name | Profile: $profile_name | Iteration ${iteration}/${ITERATIONS} | Time: ${user_time}s | RAM: ${max_rss}KB"
     
     # Output result (append to CSV)
-    echo "$iterations,$binary,$profile_name,$dataset_name,$user_time,$sys_time,$max_rss,$tp,$fp,$fn,$num_patterns,$num_nodes" >> "$output_file"
+    echo "$iteration,$binary_name,$profile_name,$dataset_name,$user_time,$sys_time,$max_rss,$tp,$fp,$fn,$num_patterns,$num_nodes" >> "$output_file"
     
     # Cleanup
     rm -rf "$tmp_dir"
@@ -110,7 +110,6 @@ echo "Running up to $JOBS parallel jobs..."
 
 # Generate list of tasks and run them in parallel
 for ((iteration=1; iteration<=$ITERATIONS; iteration++)); do
-    echo "Running iteration $iteration..."
     for binary in "${BINARIES[@]}"; do
         # Check if binary is available
         if ! command -v "$binary" &> /dev/null && [ ! -f "$binary" ]; then
