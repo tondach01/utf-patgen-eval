@@ -29,13 +29,6 @@ evaluate_task() {
     local wlh="$4"
     local output_file="$5"
     local wlh_conv=""
-
-    # Convert numeric characters to UTF-8 if binary is not patgen
-    if [[ "$binary" != "patgen" ]]; then
-        wlh_conv=$(mktemp)
-        sed -b 's/1/\xFE\x01/g; s/2/\xFE\x02/g; s/3/\xFE\x03/g; s/4/\xFE\x04/g; s/5/\xFE\x05/g; s/6/\xFE\x06/g; s/7/\xFE\x07/g; s/8/\xFE\x08/g; s/9/\xFE\x09/g' "$wlh" > "$wlh_conv"
-        wlh="$wlh_conv"
-    fi
     
     local profile_name=$(basename "$profile")
     local dataset_name=$(basename "$wlh" .wlh)
@@ -50,6 +43,13 @@ evaluate_task() {
     local tmp_dir=$(mktemp -d)
     local input_file="$tmp_dir/input.in"
     
+    # Convert numeric characters to UTF-8 if binary is not patgen
+    if [[ "$binary" != "patgen" ]]; then
+        wlh_conv=${tmp_dir}/dict.wlh
+        sed -b 's/1/\xFE\x01/g; s/2/\xFE\x02/g; s/3/\xFE\x03/g; s/4/\xFE\x04/g; s/5/\xFE\x05/g; s/6/\xFE\x06/g; s/7/\xFE\x07/g; s/8/\xFE\x08/g; s/9/\xFE\x09/g' "$wlh" > "$wlh_conv"
+        wlh="$wlh_conv"
+    fi
+
     local task_log="$LOGS_DIR/${dataset_name}_${binary_name}_${profile_name}.log"
     
     echo "[STARTED]  $dataset_name | Binary: $binary | Profile: $profile_name"
@@ -101,9 +101,6 @@ evaluate_task() {
     
     # Cleanup
     rm -rf "$tmp_dir"
-    if [[ -n "$wlh_conv" ]]; then
-        rm -f "$wlh_conv"
-    fi
 }
 
 # Print CSV header
