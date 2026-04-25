@@ -101,12 +101,12 @@ def main():
     
     combined_dataset.export(dir = args.outdir)
 
-    with open(args.outdir + "/conflicts.out", "w") as cmp:
-        print(f"Dataset 1 & Dataset 2 & Intersection & Conflicts \\", file=cmp)
+    with open(args.outdir + "/conflicts.txt", "w") as cmp:
+        print(f"Dataset 1 & Dataset 2 & Intersection & Conflicts \\\\", file=cmp)
         for i in range(len(datasets)):
             for j in range(i+1,len(datasets)):
                 intersection, conflicts = datasets[i].compare_to(datasets[j], full_report=True, report_dir=args.outdir)
-                print(f"{datasets[i].name} & {datasets[j].name} & {intersection} & {conflicts} \\", file=cmp)
+                print(f"{datasets[i].name} & {datasets[j].name} & {intersection} & {conflicts} \\\\", file=cmp)
 
 if __name__ == "__main__":
     main()
