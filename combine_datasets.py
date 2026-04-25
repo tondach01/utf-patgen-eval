@@ -14,7 +14,7 @@ class HyphenationDataset:
     def fill(self, filepath: str):
         with open(filepath) as dictionary:
             for entry in dictionary:
-                entry = entry.strip()
+                entry = re.sub("[0-9]", "", entry.strip())
                 word = re.sub(HYPHENATION_MARKER, "", entry)
                 self.mapping[word] = entry
 
