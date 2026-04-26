@@ -1,12 +1,20 @@
 #!/bin/bash
 
 # evaluate.sh - Evaluate hyph-bench datasets against different patgen binaries and profiles in parallel.
-# Measures execution time and memory usage using /usr/bin/time -v.
+# Measures execution time using /usr/bin/time -v, and true physical memory using systemd cgroups.
 #
-# Usage: Run from the project root INSIDE WSL.
+# Usage: Run from the project root on Linux.
 # ./scripts/evaluate.sh [output.csv]
 
-# Configuration
+# Pre-flight check for systemd
+if ! systemctl --user is-system-running &>/dev/null && [ "$(systemctl --user is-system-running 2>/dev/null)" != "degraded" ]; then
+    echo "ERROR: systemd user instance is not running."
+    echo "In WSL, ensure you have systemd enabled in /etc/wsl.conf:"
+    echo -e "[boot]\nsystemd=true"
+    echo "Then restart WSL using 'wsl --shutdown' from PowerShell."
+    exit 1
+fi
+
 BINARIES=("patgen" "../utf-patgen/build/utfpatgen")
 PROFILES_DIR=${PROFILES_DIR:-profiles}
 DATA_DIR=${DATA_DIR:-data}
@@ -15,13 +23,10 @@ JOBS=${JOBS:-$(nproc 2>/dev/null || echo 1)}
 ITERATIONS=${ITERATIONS:-1}
 LOGS_DIR=${LOGS_DIR:-logs}
 
-# Ensure logs directory exists
 mkdir -p "$LOGS_DIR"
 
-# Find all .wlh files in the data directory
 WLH_FILES=$(find "$DATA_DIR" -name "*.wlh" | sort)
 
-# Function to run a single evaluation task
 evaluate_task() {
     local iteration="$1"
     local binary="$2"
@@ -39,79 +44,93 @@ evaluate_task() {
         return
     fi
 
-    # Create a temporary directory for this run
-    local tmp_dir=$(mktemp -d)
+    local abs_binary
+    if command -v "$binary" >/dev/null 2>&1; then
+        abs_binary=$(command -v "$binary")
+    else
+        abs_binary=$(realpath "$binary")
+    fi
+    local abs_wlh=$(realpath "$wlh")
+    local abs_tr=$(realpath "$tr")
+
+    local tmp_dir=$(mktemp -d -p "$PWD" tmp_eval_XXXXXX)
     local input_file="$tmp_dir/input.in"
     
-    # Convert numeric characters to UTF-8 if binary is not patgen
     if [[ "$binary" != "patgen" ]]; then
         wlh_conv=${tmp_dir}/dict.wlh
-        sed -b 's/1/\xFE\x01/g; s/2/\xFE\x02/g; s/3/\xFE\x03/g; s/4/\xFE\x04/g; s/5/\xFE\x05/g; s/6/\xFE\x06/g; s/7/\xFE\x07/g; s/8/\xFE\x08/g; s/9/\xFE\x09/g' "$wlh" > "$wlh_conv"
-        wlh="$wlh_conv"
+        sed -b 's/1/\xFE\x01/g; s/2/\xFE\x02/g; s/3/\xFE\x03/g; s/4/\xFE\x04/g; s/5/\xFE\x05/g; s/6/\xFE\x06/g; s/7/\xFE\x07/g; s/8/\xFE\x08/g; s/9/\xFE\x09/g' "$abs_wlh" > "$wlh_conv"
+        abs_wlh="$wlh_conv"
     fi
 
     local task_log="$LOGS_DIR/${dataset_name}_${binary_name}_${profile_name}_${iteration}.log"
-    
     echo "[STARTED]  $dataset_name | Binary: $binary_name | Profile: $profile_name ($iteration/$ITERATIONS)"
     
-    # Construct input from profile
     local num_levels=$(grep -v '^#' "$profile" | grep -v '^[[:space:]]*$' | wc -l)
-    
-    # Range of levels
-    echo "1 $num_levels" > "$input_file"
-    
+    echo "1 $num_levels" > "$input_file" 
     while read -r line; do
-        # Skip comments and empty lines
         [[ "$line" =~ ^# ]] && continue
         [[ -z "$line" ]] && continue
         
-        # Each line: pat_start pat_finish good_weight bad_weight threshold
         if [[ "$line" =~ ([0-9]+[[:space:]]+){4}[0-9]+ ]]; then
             read -r p_s p_f g b t <<< "$line"
             echo -e "${p_s} ${p_f}\n${g} ${b} ${t}" >> "$input_file"
         fi
     done < "$profile"
-    # End input with 'y' to hyphenate word list (to get stats)
     echo "y" >> "$input_file"
     
-    # Run measurement
-    /usr/bin/time -v "$binary" "$wlh" "/dev/null" "$tmp_dir/final.pat" "$tr" < "$input_file" > "$task_log" 2> "$tmp_dir/time.log"
-    
-    # Parse metrics
-    local user_time=$(grep "User time (seconds):" "$tmp_dir/time.log" | awk '{print $4}')
-    local sys_time=$(grep "System time (seconds):" "$tmp_dir/time.log" | awk '{print $4}')
-    local max_rss=$(grep "Maximum resident set size (kbytes):" "$tmp_dir/time.log" | awk '{print $6}')
-    
-    local last_stats=$(grep "good," "$task_log" | tail -n 1)
-    local tp=$(echo "$last_stats" | awk '{print $1}')
-    local fp=$(echo "$last_stats" | awk '{print $3}')
-    local fn=$(echo "$last_stats" | awk '{print $5}')
-    
-    local num_patterns=$(wc -l < "$tmp_dir/final.pat")
-    local num_nodes=$(grep "pattern trie has .* nodes" "$task_log" | tail -n 1 | awk '{print $4}')
-    
-    # Default to 0 if not found
-    tp=${tp:-0}; fp=${fp:-0}; fn=${fn:-0}
-    num_patterns=${num_patterns:-0}; num_nodes=${num_nodes:-0}
+    local run_id="eval_$(tr -dc a-z0-9 </dev/urandom | head -c 6)_$$"
+    local wrapper_script="$tmp_dir/run_${run_id}.sh"
 
-    echo "[FINISHED] $dataset_name | Binary: $binary_name | Profile: $profile_name | Iteration ${iteration}/${ITERATIONS} | Time: ${user_time}s | RAM: ${max_rss}KB"
+    cat <<EOF > "$wrapper_script"
+#!/bin/bash
+/usr/bin/time -v "$abs_binary" "$abs_wlh" /dev/null "$tmp_dir/final.pat" "$abs_tr" < "$input_file" > "$task_log" 2> "$tmp_dir/time.log"
+systemctl --user show "$run_id" --property=MemoryPeak | cut -d= -f2 > "$tmp_dir/memory_peak.log"
+EOF
+
+    chmod u+x "$wrapper_script"
+    systemd-run --user --wait -q -d -p MemoryAccounting=yes --unit="$run_id" "$wrapper_script"
     
-    # Output result (append to CSV)
-    echo "$iteration,$binary_name,$profile_name,$dataset_name,$user_time,$sys_time,$max_rss,$tp,$fp,$fn,$num_patterns,$num_nodes" >> "$output_file"
+    local user_time=$(grep "User time (seconds):" "$tmp_dir/time.log" | awk '{print $4}')
     
-    # Cleanup
+    local memory_peak_bytes=0
+    if [ -f "$tmp_dir/memory_peak.log" ]; then
+        memory_peak_bytes=$(cat "$tmp_dir/memory_peak.log")
+    fi
+    
+    local memory_peak=0
+    if [[ "$memory_peak_bytes" =~ ^[0-9]+$ ]]; then
+        memory_peak=$((memory_peak_bytes / 1024))
+    else
+        echo "[WARNING] MemoryPeak not recorded for $run_id. Falling back to time -v RSS."
+        memory_peak=$(grep "Maximum resident set size (kbytes):" "$tmp_dir/time.log" | awk '{print $6}')
+    fi
+
+    local last_stats=$(grep "good," "$task_log" | tail -n 1)
+    local good=$(echo "$last_stats" | awk '{print $1}')
+    local bad=$(echo "$last_stats" | awk '{print $3}')
+    local missed=$(echo "$last_stats" | awk '{print $5}')
+
+    local num_patterns=0
+    if [ -f "$tmp_dir/final.pat" ]; then
+        num_patterns=$(wc -l < "$tmp_dir/final.pat")
+    else
+        echo "[ERROR] $binary_name failed to generate final.pat. Check $tmp_dir/time.log"
+    fi
+
+    good=${good:-0}; bad=${bad:-0}; missed=${missed:-0}
+
+    echo "[FINISHED] $dataset_name | Binary: $binary_name | Profile: $profile_name | Iteration ${iteration}/${ITERATIONS} | Time: ${user_time}s | RAM: ${memory_peak}KB"
+    echo "$iteration,$binary_name,$profile_name,$dataset_name,$user_time,$memory_peak,$good,$bad,$missed,$num_patterns" >> "$output_file"
+    
     rm -rf "$tmp_dir"
 }
 
-# Print CSV header
-echo "Iteration,Binary,Profile,Dataset,UserTime(s),SystemTime(s),MaxRSS(KB),TP,FP,FN,Patterns,TrieNodes" > "$OUTPUT_FILE"
+echo "Iteration,Binary,Profile,Dataset,UserTime(s),PeakMemory(KB),Good,Bad,Missed,Patterns" > "$OUTPUT_FILE"
 echo "Results will be saved to $OUTPUT_FILE"
 echo "Running up to $JOBS parallel jobs..."
 
-# Generate list of tasks and run them in parallel
 for ((iteration=1; iteration<=$ITERATIONS; iteration++)); do
     for binary in "${BINARIES[@]}"; do
-        # Check if binary is available
         if ! command -v "$binary" &> /dev/null && [ ! -f "$binary" ]; then
             echo "Binary $binary not found, skipping." >&2
             continue
@@ -126,10 +145,8 @@ for ((iteration=1; iteration<=$ITERATIONS; iteration++)); do
                     continue
                 fi
 
-                # Run in background
                 evaluate_task "$iteration" "$binary" "$profile" "$wlh" "$OUTPUT_FILE" &
-                
-                # Limit number of parallel jobs
+
                 if [[ $(jobs -r | wc -l) -ge $JOBS ]]; then
                     wait -n
                 fi
@@ -138,7 +155,6 @@ for ((iteration=1; iteration<=$ITERATIONS; iteration++)); do
     done
 done
 
-# Wait for all remaining jobs to finish
 wait
 
 echo "Done. Results written to $OUTPUT_FILE"
