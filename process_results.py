@@ -1,23 +1,22 @@
 import pandas as pd
 
-def plot_time(data: pd.DataFrame):
-    grouped = data.groupby(["Binary", "Profile", "Dataset"])["UserTime(s)"].agg(["min", "max", "mean", "std"])
-    print(grouped)
+def process_time(data: pd.DataFrame):
+    grouped = pd.DataFrame(data.groupby(["Binary", "Profile", "Dataset"])["UserTime(s)"].agg(["min", "max", "mean", "std"]))
+    grouped.to_csv("time.csv")
 
-def plot_memory(data: pd.DataFrame):
-    grouped = data.groupby(["Binary", "Profile", "Dataset"])["MaxRSS(KB)"].agg(["min", "max", "mean", "std"])
-    print(grouped)
+def process_memory(data: pd.DataFrame):
+    grouped = pd.DataFrame(data.groupby(["Binary", "Profile", "Dataset"])["PeakMemory(KB)"].agg(["min", "max", "mean", "std"]))
+    grouped.to_csv("memory.csv")
 
 def check_correctness(data: pd.DataFrame):
-    grouped = data.groupby(["Binary", "Profile", "Dataset"])["TP", "FP", "FN", "Patterns"].agg(["min", "max"])
-    print(grouped)
+    pd.DataFrame(data.groupby(["Binary", "Profile", "Dataset"])[["Good", "Bad", "Missed", "Patterns"]].agg(["min", "max"])).to_csv("correctness.csv", header=["Good_min", "Good_max", "Bad_min", "Bad_max", "Missed_min", "Missed_max", "Patterns_min", "Patterns_max"])
 
 def main():
     data = pd.read_csv("evaluation_results.csv")
     
-    plot_time(data)
+    process_time(data)
 
-    plot_memory(data)
+    process_memory(data)
 
     check_correctness(data)
 
