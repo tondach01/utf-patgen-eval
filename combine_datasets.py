@@ -60,6 +60,22 @@ class HyphenationDataset:
             characters.update(set(word))
         return len(characters)
     
+    def average_line(self) -> float:
+        line_count = 0
+        character_sum = 0
+        for word in self.mapping.values():
+            line_count += 1
+            character_sum += len(word)
+        return character_sum / line_count
+    
+    def average_hyphens(self) -> float:
+        line_count = 0
+        hyphen_count = 0
+        for word in self.mapping.values():
+            line_count += 1
+            hyphen_count += word.count(HYPHENATION_MARKER)
+        return hyphen_count / line_count
+    
     def join(self, other: "HyphenationDataset", new_name: str = "") -> "HyphenationDataset":
         joined: HyphenationDataset = HyphenationDataset(new_name if new_name else f"{self.name}+{other.name}")
         joined.mapping = self.mapping.copy()
@@ -78,7 +94,13 @@ class HyphenationDataset:
         return outfile
     
     def __str__(self):
-        return f"{self.name} & {len(self.mapping)} & {self.distinct_characters()} \\\\"
+        return f"""
+Name,{self.name}
+Number of lines,{len(self.mapping)}
+Average line length,{round(self.average_line(),2)}
+Average hyphen count per line,{round(self.average_hyphens(),2)}
+Number of distinct characters,{self.distinct_characters()}
+"""
 
 def main():
     parser = argparse.ArgumentParser()
