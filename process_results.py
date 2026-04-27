@@ -9,7 +9,23 @@ def process_memory(data: pd.DataFrame):
     grouped.to_csv("memory.csv")
 
 def check_correctness(data: pd.DataFrame):
-    pd.DataFrame(data.groupby(["Binary", "Profile", "Dataset"])[["Good", "Bad", "Missed", "Patterns"]].agg(["min", "max"])).to_csv("correctness.csv", header=["Good_min", "Good_max", "Bad_min", "Bad_max", "Missed_min", "Missed_max", "Patterns_min", "Patterns_max"])
+    grouped = data.groupby(["Profile", "Dataset"], as_index=False)[["Good", "Bad", "Missed", "Patterns"]].agg(
+        Good_min=("Good", "min"),
+        Good_max=("Good", "max"),
+        Bad_min=("Bad", "min"),
+        Bad_max=("Bad", "max"),
+        Missed_min=("Missed", "min"),
+        Missed_max=("Missed", "max"),
+        Patterns_min=("Patterns", "min"),
+        Patterns_max=("Patterns", "max")
+    )
+    grouped = grouped[
+        (grouped["Good_min"] != grouped["Good_max"]) |
+        (grouped["Bad_min"] != grouped["Bad_max"]) |
+        (grouped["Missed_min"] != grouped["Missed_max"]) |
+        (grouped["Patterns_min"] != grouped["Patterns_max"])
+    ]
+    grouped.to_csv("correctness.csv", index=False)
 
 def main():
     data = pd.read_csv("evaluation_results.csv")
