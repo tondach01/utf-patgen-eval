@@ -4,6 +4,7 @@ clean:
 	rm -rf logs/ data/hyphbench_full.wlh *.txt *.csv pattmp.*
 
 evaluation_results.csv:
+	module add texlive
 	ITERATIONS=5 JOBS=32 DATA_DIR=../hyph-bench/data PROFILES_DIR=../hyph-bench/profiles ./evaluate.sh
 
 conflicts.csv: data/hyphbench_full.in
