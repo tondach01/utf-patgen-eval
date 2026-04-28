@@ -94,13 +94,11 @@ class HyphenationDataset:
         return outfile
     
     def __str__(self):
-        return f"""
-Name,{self.name}
+        return f""",{self.name}
 Number of lines,{len(self.mapping)}
 Average line length,{round(self.average_line(),2)}
 Average hyphen count per line,{round(self.average_hyphens(),2)}
-Number of distinct characters,{self.distinct_characters()}
-"""
+Number of distinct characters,{self.distinct_characters()}"""
 
 def main():
     parser = argparse.ArgumentParser()
@@ -123,12 +121,15 @@ def main():
     
     combined_dataset.export(dir = args.outdir)
 
-    with open("conflicts.csv", "w") as cmp:
-        print("Dataset 1,Dataset 2,Intersection,Conflicts", file=cmp)
+    with open("conflicts.csv", "w") as conf:
+        print("Dataset 1,Dataset 2,Intersection,Conflicts", file=conf)
         for i in range(len(datasets)):
             for j in range(i+1,len(datasets)):
                 intersection, conflicts = datasets[i].compare_to(datasets[j], full_report=True, report_dir=args.outdir)
-                print(f"{datasets[i].name},{datasets[j].name},{intersection},{conflicts}", file=cmp)
+                print(f"{datasets[i].name},{datasets[j].name},{intersection},{conflicts}", file=conf)
+    
+    with open("combined_dataset.csv", "w") as comb:
+        print(str(combined_dataset),file=comb)
 
 if __name__ == "__main__":
     main()
