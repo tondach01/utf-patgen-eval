@@ -1,11 +1,19 @@
 import argparse
+import re
 
 def put_line(line: str, outfile):
     values = line.strip().split(",")
-    print("\t" + " & ".join(values) + " \\\\", file=outfile)
+    print("\t" + escape(" & ".join(values)) + " \\\\", file=outfile)
 
 def enclose(s: str) -> str:
     return "{" + s + "}"
+
+def escape(s: str) -> str:
+    escaped = s
+    escaped = re.sub("_", "\\_", escaped)
+    escaped = re.sub("&", "\\&", escaped)
+    escaped = re.sub("%", "\\%", escaped)
+    return escaped
 
 def main():
     parser = argparse.ArgumentParser()
@@ -20,9 +28,9 @@ def main():
     out = open(args.outputfile, "w")
 
     print("\\begin{table}".format(table=enclose("table")), file=out)
-    print("\t\\caption{short}{long}".format(short=(f"[{args.shortdescription}]" if args.shortdescription else ""), long=enclose(args.description)), file=out)
+    print("\t\\caption{short}{long}".format(short=(f"[{escape(args.shortdescription)}]" if args.shortdescription else ""), long=enclose(escape(args.description))), file=out)
     if args.label:
-        print("\t\\label{label}".format(label=enclose(args.label)), file=out)
+        print("\t\\label{label}".format(label=enclose(escape(args.label))), file=out)
     print("\t\\centering", file=out)
 
     line = csv.readline().strip()
