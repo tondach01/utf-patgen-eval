@@ -3,7 +3,7 @@ import re
 
 def put_line(line: str, outfile):
     values = line.strip().split(",")
-    print("\t" + escape(" & ".join(values)) + " \\\\", file=outfile)
+    print("\t" + " & ".join([escape(v) for v in values]) + " \\\\", file=outfile)
 
 def enclose(s: str) -> str:
     return "{" + s + "}"
