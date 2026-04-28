@@ -22,8 +22,8 @@ combined_dataset_table.txt: combined_dataset.csv
 correctness.csv: evaluation_results.csv
 	source .venv/bin/activate; python process_results.py
 
-correctness_table.txt: correctness.csv
-	python csv2latex.py -f correctness.csv -o correctness_table.txt
+stability.csv: evaluation_results.csv
+	source .venv/bin/activate; python process_results.py
 
 time.csv: evaluation_results.csv
 	source .venv/bin/activate; python process_results.py
