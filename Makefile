@@ -13,6 +13,12 @@ conflicts.csv: data/hyphbench_full.in
 conflict_table.txt: conflicts.csv
 	python csv2latex.py -f conflicts.csv -o conflict_table.txt
 
+combined_dataset.csv: data/hyphbench_full.in
+	python combine_datasets.py -f data/hyphbench_full.in -o data
+
+combined_dataset_table.txt: combined_dataset.csv
+	python csv2latex.py -f combined_dataset.csv -o combined_dataset_table.txt
+
 correctness.csv: evaluation_results.csv
 	source .venv/bin/activate; python process_results.py
 
