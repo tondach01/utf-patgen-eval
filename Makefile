@@ -1,4 +1,4 @@
-.PHONY: clean
+.PHONY: clean all-tables
 
 clean:
 	rm -rf logs/ data/hyphbench_full.wlh *.txt *.csv pattmp.*
@@ -36,3 +36,6 @@ memory.csv: evaluation_results.csv
 
 memory_table.txt: memory.csv
 	python csv2latex.py -f memory.csv -o memory_table.txt
+
+all-tables: conflict_table.txt combined_dataset_table.txt time_table.txt memory_table.txt
+	rm conflicts.csv combined_dataset.csv time.csv memory.csv
