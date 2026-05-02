@@ -15,7 +15,7 @@ if ! systemctl --user is-system-running &>/dev/null && [ "$(systemctl --user is-
     exit 1
 fi
 
-BINARIES=("patgen" "../utf-patgen/build/utfpatgen")
+BINARIES=("/packages/run.64/texlive-2025/bin/patgen" "../utf-patgen/build/utfpatgen")
 PROFILES_DIR=${PROFILES_DIR:-profiles}
 DATA_DIR=${DATA_DIR:-data}
 OUTPUT_FILE=${1:-evaluation_results.csv}
@@ -56,14 +56,14 @@ evaluate_task() {
     local tmp_dir=$(mktemp -d -p "$PWD" tmp_eval_XXXXXX)
     local input_file="$tmp_dir/input.in"
     
-    if [[ "$binary" != "patgen" ]]; then
+    if [[ "$binary_name" != "patgen" ]]; then
         wlh_conv=${tmp_dir}/dict.wlh
         sed -b 's/1/\xFE\x01/g; s/2/\xFE\x02/g; s/3/\xFE\x03/g; s/4/\xFE\x04/g; s/5/\xFE\x05/g; s/6/\xFE\x06/g; s/7/\xFE\x07/g; s/8/\xFE\x08/g; s/9/\xFE\x09/g' "$abs_wlh" > "$wlh_conv"
         abs_wlh="$wlh_conv"
     fi
 
     local task_log="$LOGS_DIR/${dataset_name}_${binary_name}_${profile_name}_${iteration}.log"
-    echo "[STARTED]  $dataset_name | Binary: $binary_name | Profile: $profile_name ($iteration/$ITERATIONS)"
+    echo "[STARTED]  $dataset_name | $binary_name | $profile_name | $iteration/$ITERATIONS"
     
     local num_levels=$(grep -v '^#' "$profile" | grep -v '^[[:space:]]*$' | wc -l)
     echo "1 $num_levels" > "$input_file" 
@@ -110,18 +110,17 @@ EOF
     local bad=$(echo "$last_stats" | awk '{print $3}')
     local missed=$(echo "$last_stats" | awk '{print $5}')
 
+    good=${good:-0}; bad=${bad:-0}; missed=${missed:-0}
+
     local num_patterns=0
     if [ -f "$tmp_dir/final.pat" ]; then
         num_patterns=$(wc -l < "$tmp_dir/final.pat")
+        echo "[FINISHED] $dataset_name | $binary_name | $profile_name | ${iteration}/${ITERATIONS} | Time: ${user_time}s | RAM: ${memory_peak}KB"
+        echo "$iteration,$binary_name,$profile_name,$dataset_name,$user_time,$memory_peak,$good,$bad,$missed,$num_patterns" >> "$output_file"
     else
-        echo "[ERROR] $binary_name failed to generate final.pat. Check $tmp_dir/time.log"
+        echo "[ERROR] $dataset_name | $binary_name | $profile_name | ${iteration}/${ITERATIONS} | Failed to generate the output file. Check $tmp_dir/time.log"
     fi
 
-    good=${good:-0}; bad=${bad:-0}; missed=${missed:-0}
-
-    echo "[FINISHED] $dataset_name | Binary: $binary_name | Profile: $profile_name | Iteration ${iteration}/${ITERATIONS} | Time: ${user_time}s | RAM: ${memory_peak}KB"
-    echo "$iteration,$binary_name,$profile_name,$dataset_name,$user_time,$memory_peak,$good,$bad,$missed,$num_patterns" >> "$output_file"
-    
     rm -rf "$tmp_dir"
 }
 
