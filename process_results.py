@@ -1,11 +1,13 @@
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
 import typing
 
 def process_column(data: pd.DataFrame,
                    column_name: str,
-                   export_name: str,
                    filter_dataset: typing.Union[str, None] = None,
-                   filter_profile: typing.Union[str, None] = None):
+                   filter_profile: typing.Union[str, None] = None) -> pd.DataFrame:
     grouped = data.groupby(["Binary", "Profile", "Dataset"], as_index=False)[column_name].agg(["mean", "std"])
 
     if filter_dataset is not None:
@@ -30,6 +32,7 @@ def process_column(data: pd.DataFrame,
     ratios["Ratio"] = ratios["mean_u"] / ratios["mean_p"]
     
     ratios = ratios.drop(columns=["mean_p", "std_p", "mean_u", "std_u"]).round({"Ratio": 3})
+    ratios = ratios[["Dataset", "Profile", "\\patgen", "\\utfpatgen", "Ratio"]]
     sort_columns = ["Dataset", "Profile", "Ratio"]
     if filter_dataset is not None:
         ratios = ratios.drop(columns=["Dataset"])
@@ -38,15 +41,35 @@ def process_column(data: pd.DataFrame,
         ratios = ratios.drop(columns=["Profile"])
         sort_columns.remove("Profile")
     ratios = ratios.sort_values(by=sort_columns)
-    ratios = ratios[["Dataset", "Profile", "\\patgen", "\\utfpatgen", "Ratio"]]
 
-    ratios.to_csv(f"{export_name}.csv", index=False)
+    return ratios
+
+def boxplot(data: pd.DataFrame, export_name):
+    _, axes = plt.subplots(nrows=1, ncols=2, gridspec_kw={'width_ratios': [1.5, 1]})
+
+    for ax in axes:
+        ax.axhline(y=1.0, color='red', linestyle='--', linewidth=0.7, alpha=0.7)
+
+    sns.boxplot(data=data, x='Dataset', y='Ratio', ax=axes[0])
+    axes[0].set_xlabel('Dataset')
+    axes[0].tick_params(axis='x', rotation=90)
+
+    sns.boxplot(data=data, x='Profile', y='Ratio', ax=axes[1])
+    axes[1].set_xlabel('Profile')
+    axes[1].tick_params(axis='x', rotation=90)
+
+    plt.tight_layout()
+    plt.savefig(f"{export_name}.png", bbox_inches="tight")
 
 def process_time(data: pd.DataFrame):
-    process_column(data, "UserTime(s)", "time")
+    time_df = process_column(data, "UserTime(s)")
+    time_df.to_csv(f"time.csv", index=False)
+    boxplot(time_df, "time")
 
 def process_memory(data: pd.DataFrame):
-    process_column(data, "PeakMemory(KB)", "memory")
+    memory_df = process_column(data, "PeakMemory(KB)")
+    memory_df.to_csv(f"memory.csv", index=False)
+    boxplot(memory_df, "memory")
 
 def check_correctness(data: pd.DataFrame):
     grouped = data.groupby(["Profile", "Dataset"], as_index=False)[["Good", "Bad", "Missed", "Patterns"]].agg(
@@ -65,7 +88,11 @@ def check_correctness(data: pd.DataFrame):
         (grouped["Missed_min"] != grouped["Missed_max"]) |
         (grouped["Patterns_min"] != grouped["Patterns_max"])
     ]
-    grouped.to_csv("correctness.csv", index=False)
+    if len(grouped) > 0:
+        print("Incorrect configurations discovered:")
+        print(grouped)
+    else:
+        print("All configurations correct")
 
 def check_stability(data: pd.DataFrame):
     grouped = data.groupby(["Binary", "Profile", "Dataset"], as_index=False)[["Good", "Bad", "Missed", "Patterns"]].agg(
@@ -84,7 +111,11 @@ def check_stability(data: pd.DataFrame):
         (grouped["Missed_min"] != grouped["Missed_max"]) |
         (grouped["Patterns_min"] != grouped["Patterns_max"])
     ]
-    grouped.to_csv("stability.csv", index=False)
+    if len(grouped) > 0:
+        print("Unstable configurations discovered:")
+        print(grouped)
+    else:
+        print("All configurations stable")
 
 def main():
     data = pd.read_csv("evaluation_results.csv")
