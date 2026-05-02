@@ -6,4 +6,5 @@ __pycache__/
 *.wlhamb
 *.csv
 *.txt
+*.png
 pattmp.*
