@@ -47,10 +47,14 @@ def process_column(data: pd.DataFrame,
 def boxplot(data: pd.DataFrame, export_name):
     _, axes = plt.subplots(nrows=1, ncols=2, gridspec_kw={'width_ratios': [1.5, 1]})
 
+    size_order = ["ms_wiktionary", "tr_wiktionary", "uk_wiktionary", "el_wiktionary", "th_orchid", "pt_enwiktionary",
+    "cs_wiktionary", "it_wiktionary", "cs_ujc", "pl_enwiktionary", "ru_wiktionary", "is_hyphis", "nl_wiktionary",
+    "cs_cstenten", "de_wortliste", "de_wiktionary", "es_wiktionary", "cssk_cshyphen"]
+
     for ax in axes:
         ax.axhline(y=1.0, color='red', linestyle='--', linewidth=0.7, alpha=0.7)
 
-    sns.boxplot(data=data, x='Dataset', y='Ratio', ax=axes[0])
+    sns.boxplot(data=data, x='Dataset', y='Ratio', ax=axes[0], order=size_order)
     axes[0].set_xlabel('Dataset')
     axes[0].tick_params(axis='x', rotation=90)
 
