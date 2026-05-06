@@ -126,6 +126,8 @@ def main():
         for i in range(len(datasets)):
             for j in range(i+1,len(datasets)):
                 intersection, conflicts = datasets[i].compare_to(datasets[j], full_report=True, report_dir=args.outdir)
+                if intersection == 0:
+                    continue
                 print(f"{datasets[i].name},{datasets[j].name},{intersection},{conflicts}", file=conf)
     
     with open("combined_dataset.csv", "w") as comb:
