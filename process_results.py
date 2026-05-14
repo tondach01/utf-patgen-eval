@@ -16,12 +16,7 @@ def process_column(data: pd.DataFrame,
         grouped = grouped[grouped["Profile"] == filter_profile]
     
     # exclude experiments that failed with output limit exception and round std
-    grouped = grouped[
-        (grouped["Binary"] != "patgen") |
-        (grouped["Profile"] == "cshyphen.in") |
-        (grouped["Profile"] == "wortliste.in") |
-        (grouped["Dataset"] != "de_wortliste")
-    ].round({"std": 2, "mean": 2}) # pyright: ignore[reportArgumentType]
+    grouped = grouped.round({"std": 2, "mean": 2}) # pyright: ignore[reportArgumentType]
     
     grouped_patgen = grouped[grouped["Binary"] == "patgen"].drop(columns=["Binary"])
     grouped_utfpatgen = grouped[grouped["Binary"] == "utfpatgen"].drop(columns=["Binary"])
