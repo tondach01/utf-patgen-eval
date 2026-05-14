@@ -15,8 +15,7 @@ if ! systemctl --user is-system-running &>/dev/null && [ "$(systemctl --user is-
     exit 1
 fi
 
-# IMPORTANT: Specify the correct paths here!
-BINARIES=("patgen" "../utf-patgen/build/utfpatgen")
+BINARIES=("../texlive-source/texk/web2c/patgen" "../utf-patgen/build/utfpatgen")
 PROFILES_DIR=${PROFILES_DIR:-profiles}
 DATA_DIR=${DATA_DIR:-data}
 OUTPUT_FILE=${1:-evaluation_results.csv}
